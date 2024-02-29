@@ -62,17 +62,19 @@
         return false;
     }());
 
-    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        container.className = "unity-mobile";
-        //config.devicePixelRatio = 1;
-    }
-    loadingCover.style.display = "";
-
     let player;
     let leaderboard;
     let myGameInstance = null;
     let payments = null;
     let promptCanShow = false;
+    let mobile = false;    
+
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        container.className = "unity-mobile";
+        mobile = true;
+        //config.devicePixelRatio = 1;
+    }
+    loadingCover.style.display = "";
 
     const script = document.createElement("script");
     script.src = loaderUrl;
@@ -88,13 +90,18 @@
             alert(message);
         });
     };
+
+    var linkElement = document.createElement('a');
+    linkElement.id = 'link';
+    window.document.body.appendChild(linkElement);        
+    
     document.body.appendChild(script);
 
     function initBridge() {
         const bridge = vkBridge.default;
-
-        bridge.subscribe(eventHandler); 
         
+        bridge.subscribe(eventHandler); 
+
         bridge.send("VKWebAppInit", {})
         .then(data => {
           myGameInstance.SendMessage('VkBridge', 'Initialized', JSON.stringify(data));  
@@ -109,26 +116,25 @@
       console.log(type);
 
       switch(type) {
+
         case 'VKWebAppViewHide':
           myGameInstance.SendMessage('VkBridge', 'WindowFocus', 'false');
           break;
+
         case 'VKWebAppViewRestore': 
           myGameInstance.SendMessage('VkBridge', 'WindowFocus', 'true');
           break;
+
+        case 'VKWebAppBannerAdClosedByUser':
+          myGameInstance.SendMessage('VkBridge', 'BannerClosedByUser', 'true');
+          break;
+
         }
-    }    
+    }
 
     function appGetAds() {
         const bridge = vkBridge.default;
-        bridge.send("VKWebAppGetAds", {})
-        .then(data => {
-          console.log(data);
-          if (data.type == "VKWebAppCheckNativeAds")
-          {
-            myGameInstance.SendMessage('VkBridge', 'AdvertisementPreloadedResult', JSON.stringify(data));
-          }
-        })  
-        .catch(error => console.log(error));          
+        bridge.send('VKWebAppCheckNativeAds', { ad_format: 'interstitial'});
     }
     
     function getLaunchParams() {
@@ -167,21 +173,41 @@
         const bridge = vkBridge.default;
         bridge.send("VKWebAppShowNativeAds", {ad_format:"interstitial"})
         .then(data => {
-          window.focus();
           myGameInstance.SendMessage('VkBridge', 'ShowInterstitialResult', JSON.stringify(data));
         })  
-        .catch(error => console.log(error));
+        .catch(error => {
+            myGameInstance.SendMessage('VkBridge', 'ShowInterstitialError', JSON.stringify(error));
+            console.log(error);            
+        });
     }
 
     function showRewarded(id){
         const bridge = vkBridge.default;
         bridge.send("VKWebAppShowNativeAds", {ad_format:"reward", use_waterfall:true})
         .then(data => {
-          window.focus();  
           myGameInstance.SendMessage('VkBridge', 'ShowRewardedResult', JSON.stringify(data));
         })  
-        .catch(error => console.log(error));
+        .catch(error => {
+            myGameInstance.SendMessage('VkBridge', 'ShowRewardedError', JSON.stringify(error));
+            console.log(error);            
+        });
     }      
+
+    function showBanner(location) {
+        const bridge = vkBridge.default;
+        bridge.send('VKWebAppShowBannerAd', {
+            banner_location: location
+        })
+            .then((data) => {
+                if (data.result) {
+                    
+                }
+            })
+            .catch((error) => {
+                // Ошибка
+                console.log(error);
+            });
+    }
 
     function sendPost(text){
         const bridge = vkBridge.default;
@@ -267,6 +293,12 @@
         
       }
 
+    function OpenUrl(url) {
+        var link = document.getElementById('link');
+        link.setAttribute('href', url);
+        link.click();
+    }
+
     function CustomSend(nameMethod, paramsJson){
         var obj = {};
         if(paramsJson != 'none'){
@@ -287,8 +319,16 @@
         .catch(error => {
             myGameInstance.SendMessage('VkBridge', 'SendResult', JSON.stringify(error));
         });;
-      }  
+    }
 
+    function CheckMobile() {
+        if (mobile) {
+            myGameInstance.SendMessage('VkBridge', 'CheckMobileResult', 'true');
+        }
+        else {
+            myGameInstance.SendMessage('VkBridge', 'CheckMobileResult', 'false');
+        }
+    }
     
 </script>
 </body>
